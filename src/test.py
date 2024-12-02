@@ -5,7 +5,7 @@ from torchvision import transforms
 from PIL import Image
 import glob
 import matplotlib.pyplot as plt
-
+import numpy as np
 
 @torch.no_grad()  # Disable gradient computation during evaluation
 def evaluate_vae(model, test_loader, device="cuda"):
@@ -94,6 +94,20 @@ def create_model(
 
     return model
 
+def generate_from_latents(model, latent_values, device="cuda"):
+    """Generate images from specific latent values"""
+    model.eval()
+    with torch.no_grad():
+        # Convert input to tensor and ensure shape is correct
+        z = torch.tensor(latent_values, dtype=torch.float32).to(device)
+        if len(z.shape) == 1:
+            z = z.unsqueeze(0)  # Add batch dimension if needed
+        
+        # Generate image through decoder
+        generated = model.decoder(z)
+        
+        return generated
+    
 
 def main():
     # Set device
@@ -155,5 +169,55 @@ def main():
     print("\nSaved reconstruction comparison to reconstruction_comparison.png")
 
 
+    # Example: Try some custom latent vectors
+    test_latents = [
+        [0.0, 0.0, 0.0, 0.0],  # Zero vector
+        [1.0, 1.0, 1.0, 1.0],  # All ones
+        [1.0, -1.0, 0.5, -0.5], # Mixed values
+        # Add more test vectors as desired
+    ]
+
+    # Generate and visualize
+    fig, axes = plt.subplots(1, len(test_latents), figsize=(4*len(test_latents), 4))
+    for i, latent in enumerate(test_latents):
+        generated = generate_from_latents(model, latent, device)
+        axes[i].imshow(generated[0].cpu().squeeze(), cmap='gray')
+        axes[i].axis('off')
+        axes[i].set_title(f"Latent: {latent}")
+
+    plt.tight_layout()
+    plt.savefig("latent_exploration.png")
+    print("\nSaved latent exploration to latent_exploration.png")
+
+    # Interactive mode (uncomment to use)
+    while True:
+        try:
+            user_input = input("\nEnter 4 comma-separated floats (or 'q' to quit): ")
+            if user_input.lower() == 'q':
+                break
+            
+            latent = [float(x) for x in user_input.split(',')]
+            if len(latent) != 4:
+                print("Please enter exactly 4 values")
+                continue
+                
+            generated = generate_from_latents(model, latent, device)
+            
+            plt.figure(figsize=(4, 4))
+            plt.imshow(generated[0].cpu().squeeze(), cmap='gray')
+            plt.axis('off')
+            plt.title(f"Latent: {latent}")
+            plt.savefig("custom_latent.png")
+            plt.close()
+            print("Saved result to custom_latent.png")
+            
+        except ValueError:
+            print("Invalid input. Please enter numbers separated by commas.")
+        except KeyboardInterrupt:
+            break
+
+
+
+    
 if __name__ == "__main__":
     main()
