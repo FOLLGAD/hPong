@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from tqdm import tqdm
 import os
 
+
 class PatchEmbed(nn.Module):
     """Image to Patch Embedding"""
 
@@ -18,7 +19,6 @@ class PatchEmbed(nn.Module):
         )
 
     def forward(self, x):
-        B, C, H, W = x.shape
         x = self.proj(x)  # (B, E, H/P, W/P)
         x = x.flatten(2).transpose(1, 2)  # (B, N, E)
         return x
@@ -30,6 +30,7 @@ class ViTEncoder(nn.Module):
         img_size=32,
         patch_size=4,
         in_chans=1,
+        num_frames=3,
         embed_dim=96,
         depth=6,
         num_heads=8,
@@ -39,7 +40,9 @@ class ViTEncoder(nn.Module):
         super().__init__()
 
         # Patch embedding
-        self.patch_embed = PatchEmbed(img_size, patch_size, in_chans, embed_dim)
+        self.patch_embed = PatchEmbed(
+            img_size, patch_size, in_chans * num_frames, embed_dim
+        )
         num_patches = self.patch_embed.n_patches
 
         # Positional embedding
@@ -69,6 +72,12 @@ class ViTEncoder(nn.Module):
         nn.init.normal_(self.pos_embed, std=0.02)
 
     def forward(self, x):
+        # x shape: (Batch size, Frames, Channels, Height, Width)
+        B, F, C, H, W = x.shape
+        x = x.reshape(
+            B, F * C, H, W
+        )  # Reshape to (Batch size, Channels * Frames, Height, Width)
+
         x = self.patch_embed(x)
         x = x + self.pos_embed
         x = self.transformer(x)
@@ -85,6 +94,7 @@ class ViTDecoder(nn.Module):
         img_size=32,
         patch_size=4,
         in_chans=1,
+        num_frames=3,
         embed_dim=96,
         depth=6,
         num_heads=8,
@@ -113,7 +123,9 @@ class ViTDecoder(nn.Module):
         self.transformer = nn.TransformerEncoder(decoder_layer, num_layers=depth)
 
         # Final projection to patches
-        self.final_proj = nn.Linear(embed_dim, patch_size * patch_size * in_chans)
+        self.final_proj = nn.Linear(
+            embed_dim, patch_size * patch_size * in_chans * num_frames
+        )
 
         self.initialize_weights()
 
@@ -146,7 +158,9 @@ class ViTDecoder(nn.Module):
             -1,
         )
         x = x.permute(0, 5, 1, 3, 2, 4)
-        x = x.reshape(B, -1, self.img_size, self.img_size)
+
+        x = x.reshape(B, -1, self.img_size, self.img_size)  # Shape: (B, C*F, H, W)
+        x = x.view(B, -1, self.img_size, self.img_size)  # Shape: (B, F*C, H, W)
 
         return torch.sigmoid(x)
 
@@ -157,6 +171,7 @@ class ViTVAE(nn.Module):
         img_size=32,
         patch_size=4,
         in_chans=1,
+        num_frames=3,
         embed_dim=96,
         depth=6,
         num_heads=8,
@@ -169,6 +184,7 @@ class ViTVAE(nn.Module):
             img_size,
             patch_size,
             in_chans,
+            num_frames,
             embed_dim,
             depth,
             num_heads,
@@ -179,6 +195,7 @@ class ViTVAE(nn.Module):
             img_size,
             patch_size,
             in_chans,
+            num_frames,
             embed_dim,
             depth,
             num_heads,
@@ -192,9 +209,11 @@ class ViTVAE(nn.Module):
         return mu + eps * std
 
     def forward(self, x):
+        # x shape: (B, F, C, H, W)
         mu, logvar = self.encoder(x)
         z = self.reparameterize(mu, logvar)
-        x_recon = self.decoder(z)
+        x_recon = self.decoder(z)  # Reconstructs all frames
+        x_recon = x_recon.view(x.shape)  # Reshape to match input shape
         return x_recon, mu, logvar
 
 
@@ -257,56 +276,60 @@ def train_vae(
 ):
     # Create checkpoint directory if it doesn't exist
     os.makedirs(checkpoint_dir, exist_ok=True)
-    
+
     model.train()
-    best_loss = float('inf')
-    
+    best_loss = float("inf")
+
     for epoch in range(epochs):
         total_loss = 0
         total_recon = 0
         total_kl = 0
-        
+
         # Add progress bar for batches
-        pbar = tqdm(train_loader, desc=f'Epoch {epoch+1}/{epochs}')
+        pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs}")
         for batch_idx, x in enumerate(pbar):
             x = x.to(device)
             loss, recon, kl = train_step(model, optimizer, x)
-            
+
             total_loss += loss
             total_recon += recon
             total_kl += kl
-            
+
             # Update progress bar with current batch metrics
-            pbar.set_postfix({
-                'loss': f'{loss/len(x):.4f}',
-                'recon': f'{recon/len(x):.4f}',
-                'kl': f'{kl/len(x):.4f}'
-            })
-            
+            pbar.set_postfix(
+                {
+                    "loss": f"{loss/len(x):.4f}",
+                    "recon": f"{recon/len(x):.4f}",
+                    "kl": f"{kl/len(x):.4f}",
+                }
+            )
+
         avg_loss = total_loss / len(train_loader.dataset)
         avg_recon = total_recon / len(train_loader.dataset)
         avg_kl = total_kl / len(train_loader.dataset)
-        
-        print(f'Epoch {epoch+1}/{epochs}: Loss = {avg_loss:.4f} '
-              f'(Recon = {avg_recon:.4f}, KL = {avg_kl:.4f})')
-        
+
+        print(
+            f"Epoch {epoch+1}/{epochs}: Loss = {avg_loss:.4f} "
+            f"(Recon = {avg_recon:.4f}, KL = {avg_kl:.4f})"
+        )
+
         # Save checkpoint if it's the best model so far
         if avg_loss < best_loss:
             best_loss = avg_loss
             checkpoint = {
-                'epoch': epoch + 1,
-                'model_state_dict': model.state_dict(),
-                'optimizer_state_dict': optimizer.state_dict(),
-                'loss': best_loss,
+                "epoch": epoch + 1,
+                "model_state_dict": model.state_dict(),
+                "optimizer_state_dict": optimizer.state_dict(),
+                "loss": best_loss,
             }
-            torch.save(checkpoint, os.path.join(checkpoint_dir, 'best_model.pt'))
-            print(f'Saved new best model with loss: {best_loss:.4f}')
-        
+            torch.save(checkpoint, os.path.join(checkpoint_dir, "best_model.pt"))
+            print(f"Saved new best model with loss: {best_loss:.4f}")
+
         # Save latest model
         checkpoint = {
-            'epoch': epoch + 1,
-            'model_state_dict': model.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
-            'loss': avg_loss,
+            "epoch": epoch + 1,
+            "model_state_dict": model.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+            "loss": avg_loss,
         }
-        torch.save(checkpoint, os.path.join(checkpoint_dir, 'latest_model.pt'))
+        torch.save(checkpoint, os.path.join(checkpoint_dir, "latest_model.pt"))

@@ -1,11 +1,9 @@
 # For VAE training (single frames)
-from data import BouncingBallDataset, SequentialBouncingBallDataset
+from data import SequentialBouncingBallDataset
 from torch.utils.data import DataLoader
-import torchvision
-import os
 
 
-dataset = BouncingBallDataset(num_frames=10000, img_size=32)
+dataset = SequentialBouncingBallDataset(num_sequences=10000, sequence_length=3)
 train_loader = DataLoader(dataset, batch_size=32, shuffle=True)
 
 # os.makedirs('generated_data', exist_ok=True)

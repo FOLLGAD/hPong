@@ -1,11 +1,10 @@
 import torch
 from tqdm import tqdm
 from models import ViTVAE
-from torchvision import transforms
-from PIL import Image
-import glob
 import matplotlib.pyplot as plt
-import numpy as np
+from generate_data import SequentialBouncingBallDataset
+from torch.utils.data import DataLoader
+
 
 @torch.no_grad()  # Disable gradient computation during evaluation
 def evaluate_vae(model, test_loader, device="cuda"):
@@ -20,7 +19,7 @@ def evaluate_vae(model, test_loader, device="cuda"):
     pbar = tqdm(test_loader, desc="Evaluating")
     for batch in pbar:
         # Unpack the batch - TensorDataset returns a tuple
-        x = batch[0].to(device)  # Changed from x = x.to(device)
+        x = batch.to(device)  # Changed from x = x.to(device)
 
         # Rest of the function remains the same
         recon_x, mu, logvar = model(x)
@@ -110,38 +109,22 @@ def generate_from_latents(model, latent_values, device="cuda"):
     
 
 def main():
-    # Set device
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    # Create model and load checkpoint
     model = create_model(device=device)
     checkpoint = torch.load("checkpoints/latest_model.pt")
     model.load_state_dict(checkpoint["model_state_dict"])
 
-    # Setup image transforms
-    transform = transforms.Compose(
-        [
-            transforms.Grayscale(num_output_channels=1),  # Convert to grayscale
-            transforms.ToTensor(),
-        ]
+    test_dataset = SequentialBouncingBallDataset(
+        num_sequences=1000,  # You can adjust this number
+        sequence_length=3,   # Same as num_frames in training
+        img_size=32
     )
+    test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
 
-    # Load all PNG images
-    test_images = []
-    for img_path in glob.glob("example_data/*.png"):
-        img = Image.open(img_path)
-        test_images.append(transform(img))
-
-    test_data = torch.stack(test_images)
-
-    test_dataset = torch.utils.data.TensorDataset(test_data)
-    test_loader = torch.utils.data.DataLoader(
-        test_dataset, batch_size=32, shuffle=False
-    )
-
-    # Evaluate
     model.eval()
     metrics, viz_data = evaluate_vae(model, test_loader, device)
+
 
     print("\nEvaluation complete!")
 
@@ -154,13 +137,13 @@ def main():
 
     # Plot original images on top row
     for i in range(8):
-        axes[0, i].imshow(orig_imgs[i].squeeze(), cmap="gray")
+        axes[0, i].imshow(orig_imgs[i, 2].squeeze(), cmap="gray")
         axes[0, i].axis("off")
         axes[0, i].set_title("Original")
 
     # Plot reconstructed images on bottom row
     for i in range(8):
-        axes[1, i].imshow(recon_imgs[i].squeeze(), cmap="gray")
+        axes[1, i].imshow(recon_imgs[i, 2].squeeze(), cmap="gray")
         axes[1, i].axis("off")
         axes[1, i].set_title("Reconstructed")
 
