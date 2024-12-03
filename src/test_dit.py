@@ -4,6 +4,7 @@ from dit import DiT
 from vae import ViTVAE
 import torch
 from torch.utils.data import DataLoader
+from matplotlib import pyplot as plt
 
 device = "cuda" if torch.cuda.is_available() else "mps"
 
@@ -31,7 +32,7 @@ def main():
         num_heads=8,
         latent_dim=4,
     ).to(device)
-    checkpoint = torch.load("checkpoints/latest_model.pt")
+    checkpoint = torch.load("best/best_model-VAE.pt", map_location=torch.device(device))
     vae.load_state_dict(checkpoint["model_state_dict"])
 
     test_dataset = SequentialBouncingBallDataset(
@@ -47,7 +48,7 @@ def main():
         latent_dim=4,
     ).to(device)
 
-    dit_checkpoint = torch.load("dit_checkpoints/latest_model.pt")
+    dit_checkpoint = torch.load("best/best_model-DiT.pt", map_location=torch.device(device))
     dit_model.load_state_dict(dit_checkpoint["model_state_dict"])
 
     # Run the data through the VAE encoder
@@ -57,44 +58,57 @@ def main():
     for batch in test_loader:
         x = batch.to(device)
 
-        # Encode the images to latent space using VAE
-        mu, logvar = vae.encoder(x[:, :3])  # only encode the first 3 frames
+        # Encode the first 3 frames to latent space using VAE
+        mu, logvar = vae.encoder(x[:, :3])
+        original_images.append(x[:, :3].cpu())  # Store the original 3 frames
 
-        pred_mu, pred_logvar = dit_model(torch.cat([mu, logvar], dim=-1))
+        # Simulate 30 frames forward
+        for _ in range(32):
+            # Predict the next latent distribution using DiT
+            pred_mu, pred_logvar = dit_model(torch.cat([mu, logvar], dim=-1))
 
-        # Decode the predicted latent distribution to generate images
-        latent_z = vae.reparameterize(pred_mu, pred_logvar)
+            # Reparameterize to get the latent vector
+            latent_z = vae.reparameterize(pred_mu, pred_logvar)
 
-        # Decode the DiT output back to image space using VAE decoder
-        recon_x = generate_from_latents(vae, latent_z, device)
+            # Decode the latent vector to generate the next frame
+            recon_x = generate_from_latents(vae, latent_z, device)
 
-        # Store images for visualization
-        original_images.append(x.cpu())
-        reconstructed_images.append(recon_x.cpu())
+            # Store the generated frame
+            reconstructed_images.append(recon_x.cpu())
 
-    # Visualize the results
-    import matplotlib.pyplot as plt
+            # Update mu and logvar for the next iteration
+            mu, logvar = pred_mu, pred_logvar
 
-    orig_imgs = torch.cat(original_images, dim=0)
-    recon_imgs = torch.cat(reconstructed_images, dim=0)
+        break
 
-    fig, axes = plt.subplots(3, 8, figsize=(16, 6))
+    # Convert lists to tensors for easier manipulation
+    original_images = torch.cat(original_images, dim=0)
+    reconstructed_images = torch.cat(reconstructed_images, dim=0)
 
-    # Plot original images on the first row
-    for i in range(8):
-        axes[0, i].imshow(orig_imgs[i, 2].squeeze(), cmap="gray")
+    # Number of frames to display
+    num_display_frames = 30
+
+    # Create figure with subplots
+    fig, axes = plt.subplots(2, num_display_frames, figsize=(20, 2))
+
+    for i in range(num_display_frames):
+        axes[0, i].imshow(original_images[i, 2].squeeze(), cmap="gray")
         axes[0, i].axis("off")
-        axes[0, i].set_title("Original")
 
-    # Plot reconstructed images on the third row
-    for i in range(8):
-        axes[2, i].imshow(recon_imgs[i, 2].squeeze(), cmap="gray")
-        axes[2, i].axis("off")
-        axes[2, i].set_title("Reconstructed")
+    for i in range(num_display_frames):
+        # Check if the image is grayscale or RGB
+        img = reconstructed_images[i]
+        if img.shape[0] == 3:  # If the first dimension is 3, assume RGB
+            img = img.permute(1, 2, 0)  # Change shape to (32, 32, 3)
+        else:
+            img = img.squeeze()  # For grayscale, ensure it's 2D
 
-    plt.tight_layout()
-    plt.savefig("dit_reconstruction_comparison.png")
-    print("\nSaved DiT reconstruction comparison to dit_reconstruction_comparison.png")
+        axes[1, i].imshow(img, cmap="gray" if img.ndim == 2 else None)
+        axes[1, i].axis("off")
+
+    plt.subplots_adjust(wspace=0.10, hspace=0.10, left=0.01, right=0.99, top=0.99, bottom=0.01)
+    plt.savefig("simulation_comparison.png")
+    print("\nSaved simulation comparison to simulation_comparison.png")
 
 
 if __name__ == "__main__":
