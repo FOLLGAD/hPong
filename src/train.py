@@ -1,4 +1,4 @@
-from models import ViTVAE, DiT, train_vae
+from vae import ViTVAE, train_vae
 from generate_data import train_loader
 import torch
 

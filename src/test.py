@@ -1,6 +1,6 @@
 import torch
 from tqdm import tqdm
-from models import ViTVAE
+from vae import ViTVAE
 import matplotlib.pyplot as plt
 from generate_data import SequentialBouncingBallDataset
 from torch.utils.data import DataLoader
@@ -72,27 +72,6 @@ def evaluate_vae(model, test_loader, device="cuda"):
     return metrics, visualization_data
 
 
-def create_model(
-    img_size=32,
-    patch_size=4,
-    embed_dim=96,
-    depth=6,
-    num_heads=8,
-    latent_dim=4,
-    device="cuda",
-):
-    """Create and initialize the ViTVAE model"""
-    model = ViTVAE(
-        img_size=img_size,
-        patch_size=patch_size,
-        embed_dim=embed_dim,
-        depth=depth,
-        num_heads=num_heads,
-        latent_dim=latent_dim,
-    ).to(device)
-
-    return model
-
 def generate_from_latents(model, latent_values, device="cuda"):
     """Generate images from specific latent values"""
     model.eval()
@@ -101,30 +80,36 @@ def generate_from_latents(model, latent_values, device="cuda"):
         z = torch.tensor(latent_values, dtype=torch.float32).to(device)
         if len(z.shape) == 1:
             z = z.unsqueeze(0)  # Add batch dimension if needed
-        
+
         # Generate image through decoder
         generated = model.decoder(z)
-        
+
         return generated
-    
+
 
 def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    model = create_model(device=device)
+    model = ViTVAE(
+        img_size=32,
+        patch_size=4,
+        embed_dim=96,
+        depth=6,
+        num_heads=8,
+        latent_dim=4,
+    ).to(device)
     checkpoint = torch.load("checkpoints/latest_model.pt")
     model.load_state_dict(checkpoint["model_state_dict"])
 
     test_dataset = SequentialBouncingBallDataset(
         num_sequences=1000,  # You can adjust this number
-        sequence_length=3,   # Same as num_frames in training
-        img_size=32
+        sequence_length=3,  # Same as num_frames in training
+        img_size=32,
     )
     test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
 
     model.eval()
     metrics, viz_data = evaluate_vae(model, test_loader, device)
-
 
     print("\nEvaluation complete!")
 
@@ -151,56 +136,32 @@ def main():
     plt.savefig("reconstruction_comparison.png")
     print("\nSaved reconstruction comparison to reconstruction_comparison.png")
 
-
-    # Example: Try some custom latent vectors
-    test_latents = [
-        [0.0, 0.0, 0.0, 0.0],  # Zero vector
-        [1.0, 1.0, 1.0, 1.0],  # All ones
-        [1.0, -1.0, 0.5, -0.5], # Mixed values
-        # Add more test vectors as desired
-    ]
-
-    # Generate and visualize
-    fig, axes = plt.subplots(1, len(test_latents), figsize=(4*len(test_latents), 4))
-    for i, latent in enumerate(test_latents):
-        generated = generate_from_latents(model, latent, device)
-        axes[i].imshow(generated[0].cpu().squeeze(), cmap='gray')
-        axes[i].axis('off')
-        axes[i].set_title(f"Latent: {latent}")
-
-    plt.tight_layout()
-    plt.savefig("latent_exploration.png")
-    print("\nSaved latent exploration to latent_exploration.png")
-
-    # Interactive mode (uncomment to use)
     while True:
         try:
             user_input = input("\nEnter 4 comma-separated floats (or 'q' to quit): ")
-            if user_input.lower() == 'q':
+            if user_input.lower() == "q":
                 break
-            
-            latent = [float(x) for x in user_input.split(',')]
+
+            latent = [float(x) for x in user_input.split(",")]
             if len(latent) != 4:
                 print("Please enter exactly 4 values")
                 continue
-                
+
             generated = generate_from_latents(model, latent, device)
-            
+
             plt.figure(figsize=(4, 4))
-            plt.imshow(generated[0].cpu().squeeze(), cmap='gray')
-            plt.axis('off')
+            plt.imshow(generated[0].cpu().squeeze(), cmap="gray")
+            plt.axis("off")
             plt.title(f"Latent: {latent}")
             plt.savefig("custom_latent.png")
             plt.close()
             print("Saved result to custom_latent.png")
-            
+
         except ValueError:
             print("Invalid input. Please enter numbers separated by commas.")
         except KeyboardInterrupt:
             break
 
 
-
-    
 if __name__ == "__main__":
     main()

@@ -3,7 +3,7 @@ from data import SequentialBouncingBallDataset
 from torch.utils.data import DataLoader
 
 
-dataset = SequentialBouncingBallDataset(num_sequences=10000, sequence_length=3)
+dataset = SequentialBouncingBallDataset(num_sequences=10000, sequence_length=4)
 train_loader = DataLoader(dataset, batch_size=32, shuffle=True)
 
 # os.makedirs('generated_data', exist_ok=True)

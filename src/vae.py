@@ -217,33 +217,6 @@ class ViTVAE(nn.Module):
         return x_recon, mu, logvar
 
 
-class DiT(nn.Module):
-    """Diffusion Transformer for predicting next latent state"""
-
-    def __init__(self, latent_dim=4, hidden_dim=128, nhead=8, num_layers=4):
-        super().__init__()
-
-        self.input_proj = nn.Linear(latent_dim, hidden_dim)
-
-        encoder_layer = nn.TransformerEncoderLayer(
-            d_model=hidden_dim,
-            nhead=nhead,
-            dim_feedforward=hidden_dim * 4,
-            batch_first=True,
-        )
-        self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
-
-        self.output_proj = nn.Linear(hidden_dim, latent_dim)
-
-    def forward(
-        self, x, timesteps=None
-    ):  # timesteps for future diffusion implementation
-        x = self.input_proj(x)
-        x = self.transformer(x.unsqueeze(1))
-        x = self.output_proj(x.squeeze(1))
-        return x
-
-
 def train_step(model, optimizer, x, beta=0.0002):
     optimizer.zero_grad()
 
@@ -265,6 +238,8 @@ def train_step(model, optimizer, x, beta=0.0002):
 
     return loss.item(), recon_loss.item(), kl_loss.item()
 
+
+num_frames = 3
 
 def train_vae(
     model,
@@ -288,6 +263,7 @@ def train_vae(
         # Add progress bar for batches
         pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs}")
         for batch_idx, x in enumerate(pbar):
+            x = x[:, :num_frames]  # Only take the first 3 frames
             x = x.to(device)
             loss, recon, kl = train_step(model, optimizer, x)
 
