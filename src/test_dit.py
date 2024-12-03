@@ -48,7 +48,9 @@ def main():
         latent_dim=4,
     ).to(device)
 
-    dit_checkpoint = torch.load("best/best_model-DiT.pt", map_location=torch.device(device))
+    dit_checkpoint = torch.load(
+        "best/best_model-DiT.pt", map_location=torch.device(device)
+    )
     dit_model.load_state_dict(dit_checkpoint["model_state_dict"])
 
     # Run the data through the VAE encoder
@@ -86,15 +88,17 @@ def main():
     reconstructed_images = torch.cat(reconstructed_images, dim=0)
 
     # Number of frames to display
-    num_display_frames = 30
+    num_display_frames = 32
 
     # Create figure with subplots
     fig, axes = plt.subplots(2, num_display_frames, figsize=(20, 2))
 
+    axes[0, 16].set_title("Ground truth", fontsize=10)
     for i in range(num_display_frames):
         axes[0, i].imshow(original_images[i, 2].squeeze(), cmap="gray")
         axes[0, i].axis("off")
 
+    axes[1, 16].set_title("Simulated by DiT", fontsize=10)
     for i in range(num_display_frames):
         # Check if the image is grayscale or RGB
         img = reconstructed_images[i]
@@ -106,7 +110,9 @@ def main():
         axes[1, i].imshow(img, cmap="gray" if img.ndim == 2 else None)
         axes[1, i].axis("off")
 
-    plt.subplots_adjust(wspace=0.10, hspace=0.10, left=0.01, right=0.99, top=0.99, bottom=0.01)
+    plt.subplots_adjust(
+        wspace=0.10, hspace=0.10, left=0.01, right=0.99, top=0.99, bottom=0.01
+    )
     plt.savefig("simulation_comparison.png")
     print("\nSaved simulation comparison to simulation_comparison.png")
 
