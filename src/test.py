@@ -6,6 +6,7 @@ from generate_data import SequentialBouncingBallDataset
 from torch.utils.data import DataLoader
 
 
+
 @torch.no_grad()  # Disable gradient computation during evaluation
 def evaluate_vae(model, test_loader, device="cuda"):
     model.eval()
@@ -87,8 +88,20 @@ def generate_from_latents(model, latent_values, device="cuda"):
         return generated
 
 
+test_dataset = SequentialBouncingBallDataset(
+    num_sequences=1000,  # You can adjust this number
+    sequence_length=3,  # Same as num_frames in training
+    img_size=32,
+)
+test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
+
 def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    for batch in test_loader:
+        with open("batch_output.txt", "w") as f:
+            f.write(str(batch[0][0].tolist()))
+        return
 
     model = ViTVAE(
         img_size=32,
@@ -100,13 +113,6 @@ def main():
     ).to(device)
     checkpoint = torch.load("checkpoints/latest_model.pt")
     model.load_state_dict(checkpoint["model_state_dict"])
-
-    test_dataset = SequentialBouncingBallDataset(
-        num_sequences=1000,  # You can adjust this number
-        sequence_length=3,  # Same as num_frames in training
-        img_size=32,
-    )
-    test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
 
     model.eval()
     metrics, viz_data = evaluate_vae(model, test_loader, device)

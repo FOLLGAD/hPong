@@ -23,6 +23,19 @@ class DiT(nn.Module):
         # Separate projection heads for mean and logvar
         self.mu_proj = nn.Linear(hidden_dim, latent_dim)
         self.logvar_proj = nn.Linear(hidden_dim, latent_dim)
+    
+        self._initialize_weights()
+
+    def _initialize_weights(self):
+        # Initialize weights for input projection
+        nn.init.xavier_uniform_(self.input_proj.weight)
+        nn.init.zeros_(self.input_proj.bias)
+
+        # Initialize weights for mu and logvar projections
+        nn.init.xavier_uniform_(self.mu_proj.weight)
+        nn.init.zeros_(self.mu_proj.bias)
+        nn.init.xavier_uniform_(self.logvar_proj.weight)
+        nn.init.zeros_(self.logvar_proj.bias)
 
     def forward(self, x):
         x = self.input_proj(x)

@@ -26,6 +26,6 @@ train_dit(
     train_loader=train_loader,
     optimizer=optimizer,
     epochs=100,
-    beta=1.0,  # Adjust this weight to balance reconstruction vs KL loss
+    beta=1e-8,  # Adjust this weight to balance reconstruction vs KL loss
     device=device,
 )
