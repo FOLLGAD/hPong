@@ -19,7 +19,7 @@ def evaluate_vae(model, test_loader, device="cuda"):
     pbar = tqdm(test_loader, desc="Evaluating")
     for batch in pbar:
         # Unpack the batch - TensorDataset returns a tuple
-        x = batch.to(device)  # Changed from x = x.to(device)
+        x = batch[:, :3].to(device)  # Changed from x = x.to(device)
 
         # Rest of the function remains the same
         recon_x, mu, logvar = model(x)
