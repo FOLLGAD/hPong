@@ -243,16 +243,16 @@ if __name__ == "__main__":
 class PongDataset(Dataset):
     frames_per_sample: int = 4
 
-    def __init__(self, num_samples=250, num_frames=500, frames_per_sample=4):
-        self.data = self._generate_pong_dataset(num_samples, num_frames)
+    def __init__(self, num_episodes=250, num_frames=500, frames_per_sample=4):
+        self.data = self._generate_pong_dataset(num_episodes, num_frames)
         self.frames_per_sample = frames_per_sample
 
-    def _generate_pong_dataset(self, num_samples, num_frames):
+    def _generate_pong_dataset(self, num_episodes, num_frames):
         dataset = []
         env = PongEnv()
         right_agent = PongAgent("right")
 
-        for _ in range(num_samples):
+        for _ in range(num_episodes):
             state = env.reset()
 
             for _ in range(num_frames):
@@ -276,9 +276,12 @@ class PongDataset(Dataset):
         return dataset
 
     def __len__(self):
-        return len(self.data)
+        return len(self.data) - self.frames_per_sample + 1
 
     def __getitem__(self, idx):
+        if idx + self.frames_per_sample > len(self.data):
+            raise IndexError("Index out of range for available data samples.")
+
         samples = self.data[idx : idx + self.frames_per_sample]
 
         states = [sample[0] for sample in samples]
