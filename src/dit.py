@@ -87,20 +87,6 @@ def train_dit(
             input_frames = x[:, :3]  # First 3 frames
             target_frames = x[:, 1:4]  # Next 3 frames
 
-            # import matplotlib.pyplot as plt
-            # # Debug display for input and target frames using matplotlib
-            # def plot_frames(frames, title):
-            #     fig, axes = plt.subplots(1, frames.shape[1], figsize=(12, 4))
-            #     fig.suptitle(title)
-            #     for i, ax in enumerate(axes):
-            #         ax.imshow(frames[0, i].permute(1, 2, 0).cpu().numpy())
-            #         ax.axis("off")
-            #     plt.show()
-
-            # print(f"Batch {batch_idx}:")
-            # plot_frames(input_frames, "Input Frames")
-            # plot_frames(target_frames, "Target Frames")
-
             with torch.no_grad():
                 # Get target distribution parameters
                 target_mu, target_logvar = vae_model.encoder(target_frames)

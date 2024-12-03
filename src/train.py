@@ -1,6 +1,7 @@
 from vae import ViTVAE, train_vae
-from generate_data import train_loader
 import torch
+from torch.utils.data import DataLoader
+from PongSim import pong_dataset
 
 device = (
     "cuda"
@@ -10,7 +11,7 @@ device = (
 device = "cpu"
 
 # Model params
-img_size = 32
+img_size = (32, 64)
 patch_size = 4
 embed_dim = 96
 num_frames = 3
@@ -33,4 +34,5 @@ vae = ViTVAE(
 
 # Training
 optimizer = torch.optim.Adam(vae.parameters(), lr=1e-4)
+train_loader = DataLoader(pong_dataset, batch_size=32, shuffle=True)
 train_vae(vae, train_loader, optimizer, epochs=100, device=device)

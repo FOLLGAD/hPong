@@ -8,11 +8,11 @@ import os
 class PatchEmbed(nn.Module):
     """Image to Patch Embedding"""
 
-    def __init__(self, img_size=32, patch_size=4, in_chans=1, embed_dim=96):
+    def __init__(self, img_size=(32, 64), patch_size=4, in_chans=1, embed_dim=96):
         super().__init__()
         self.img_size = img_size
         self.patch_size = patch_size
-        self.n_patches = (img_size // patch_size) ** 2
+        self.n_patches = (img_size[0] // patch_size) * (img_size[1] // patch_size)
 
         self.proj = nn.Conv2d(
             in_chans, embed_dim, kernel_size=patch_size, stride=patch_size
@@ -27,7 +27,7 @@ class PatchEmbed(nn.Module):
 class ViTEncoder(nn.Module):
     def __init__(
         self,
-        img_size=32,
+        img_size=(32, 64),
         patch_size=4,
         in_chans=1,
         num_frames=3,
@@ -91,7 +91,7 @@ class ViTEncoder(nn.Module):
 class ViTDecoder(nn.Module):
     def __init__(
         self,
-        img_size=32,
+        img_size=(32, 64),
         patch_size=4,
         in_chans=1,
         num_frames=3,
@@ -105,7 +105,7 @@ class ViTDecoder(nn.Module):
 
         self.img_size = img_size
         self.patch_size = patch_size
-        self.num_patches = (img_size // patch_size) ** 2
+        self.num_patches = (img_size[0] // patch_size) * (img_size[1] // patch_size)
 
         # Project latent to patches
         self.latent_proj = nn.Linear(latent_dim, embed_dim * self.num_patches)
@@ -168,7 +168,7 @@ class ViTDecoder(nn.Module):
 class ViTVAE(nn.Module):
     def __init__(
         self,
-        img_size=32,
+        img_size=(32, 64),
         patch_size=4,
         in_chans=1,
         num_frames=3,
@@ -240,6 +240,7 @@ def train_step(model, optimizer, x, beta=0.0002):
 
 
 num_frames = 3
+
 
 def train_vae(
     model,
