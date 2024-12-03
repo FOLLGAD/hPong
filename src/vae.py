@@ -268,8 +268,6 @@ def train_vae(
             x = x[:, :num_frames]  # Only take the first 3 frames
             # x is [batch_size, num_frames, channels, height, width]
 
-            print(f"x shape: {x.shape}")
-
             x = x.to(device)
 
             loss, recon, kl = train_step(model, optimizer, x)
