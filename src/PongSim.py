@@ -300,6 +300,7 @@ if os.path.exists(dataset_path):
     print(f"Loaded existing dataset with {len(pong_dataset)} samples.")
 else:
     # Generate the dataset and save it to a file
+    print("Generating dataset... This might take a while.")
     pong_dataset = PongDataset()
     with open(dataset_path, "wb") as f:
         pickle.dump(pong_dataset, f)

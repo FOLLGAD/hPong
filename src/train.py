@@ -8,7 +8,6 @@ device = (
     if torch.cuda.is_available()
     else ("mps" if torch.backends.mps.is_available() else "cpu")
 )
-device = "cpu"
 
 # Model params
 img_size = (32, 64)
