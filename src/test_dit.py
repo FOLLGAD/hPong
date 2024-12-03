@@ -15,9 +15,8 @@ def generate_from_latents(model, latent_values, device="cuda"):
     with torch.no_grad():
         z = torch.tensor(latent_values, dtype=torch.float32).to(device)
         if len(z.shape) == 1:
-            z = z.unsqueeze(0)  # Add batch dimension if needed
+            z = z.unsqueeze(0)
 
-        # Generate image through decoder
         generated = model.decoder(z)
 
         return generated

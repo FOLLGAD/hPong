@@ -1,6 +1,8 @@
 import torch
 import numpy as np
 from torch.utils.data import DataLoader, Dataset
+import os
+import pickle
 
 
 class PongEnv:
@@ -277,16 +279,20 @@ class PongDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx):
-        return self.data[idx : idx + self.frames_per_sample]
+        samples = self.data[idx : idx + self.frames_per_sample]
 
+        states = [sample[0] for sample in samples]
+        left_actions = [sample[1] for sample in samples]
+        right_actions = [sample[2] for sample in samples]
 
-import os
-import pickle
+        stacked_states = torch.stack(states)
+
+        return stacked_states, torch.stack(left_actions), torch.stack(right_actions)
+
 
 dataset_path = "pong_dataset.pkl"
 
 # Check if the dataset already exists
-print("heyy")
 if os.path.exists(dataset_path):
     # Load the dataset from the file
     with open(dataset_path, "rb") as f:

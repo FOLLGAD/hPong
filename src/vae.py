@@ -151,16 +151,17 @@ class ViTDecoder(nn.Module):
         # Reshape to image
         x = x.view(
             B,
-            self.img_size // self.patch_size,
-            self.img_size // self.patch_size,
+            self.img_size[0] // self.patch_size,
+            self.img_size[1] // self.patch_size,
             self.patch_size,
             self.patch_size,
             -1,
         )
         x = x.permute(0, 5, 1, 3, 2, 4)
 
-        x = x.reshape(B, -1, self.img_size, self.img_size)  # Shape: (B, C*F, H, W)
-        x = x.view(B, -1, self.img_size, self.img_size)  # Shape: (B, F*C, H, W)
+        x = x.reshape(
+            B, -1, self.img_size[0], self.img_size[1]
+        )  # Shape: (B, C*F, H, W)
 
         return torch.sigmoid(x)
 
@@ -263,9 +264,14 @@ def train_vae(
 
         # Add progress bar for batches
         pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs}")
-        for batch_idx, x in enumerate(pbar):
+        for batch_idx, (x, left_action, right_action) in enumerate(pbar):
             x = x[:, :num_frames]  # Only take the first 3 frames
+            # x is [batch_size, num_frames, channels, height, width]
+
+            print(f"x shape: {x.shape}")
+
             x = x.to(device)
+
             loss, recon, kl = train_step(model, optimizer, x)
 
             total_loss += loss
