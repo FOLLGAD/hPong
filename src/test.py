@@ -2,9 +2,9 @@ import torch
 from tqdm import tqdm
 from vae import ViTVAE
 import matplotlib.pyplot as plt
-from generate_data import SequentialBouncingBallDataset
 from torch.utils.data import DataLoader
 
+from PongSim import pong_dataset
 
 
 @torch.no_grad()  # Disable gradient computation during evaluation
@@ -18,9 +18,12 @@ def evaluate_vae(model, test_loader, device="cuda"):
     reconstructed_images = []
 
     pbar = tqdm(test_loader, desc="Evaluating")
-    for batch in pbar:
+    for i, (x, left_action, right_action) in enumerate(pbar):
+        if i >= 2:
+            break
+
         # Unpack the batch - TensorDataset returns a tuple
-        x = batch[:, :3].to(device)  # Changed from x = x.to(device)
+        x = x[:, :3].to(device)  # Changed from x = x.to(device)
 
         # Rest of the function remains the same
         recon_x, mu, logvar = model(x)
@@ -88,30 +91,22 @@ def generate_from_latents(model, latent_values, device="cuda"):
         return generated
 
 
-test_dataset = SequentialBouncingBallDataset(
-    num_sequences=1000,  # You can adjust this number
-    sequence_length=3,  # Same as num_frames in training
-    img_size=32,
-)
-test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
+pong_dataset.frames_per_sample = 32
+test_loader = DataLoader(pong_dataset, batch_size=32, shuffle=False)
+
 
 def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    for batch in test_loader:
-        with open("batch_output.txt", "w") as f:
-            f.write(str(batch[0][0].tolist()))
-        return
-
     model = ViTVAE(
-        img_size=32,
+        img_size=(32, 64),
         patch_size=4,
         embed_dim=96,
         depth=6,
         num_heads=8,
         latent_dim=4,
     ).to(device)
-    checkpoint = torch.load("checkpoints/latest_model.pt")
+    checkpoint = torch.load("best/vae_pong_best.pt", map_location=torch.device(device))
     model.load_state_dict(checkpoint["model_state_dict"])
 
     model.eval()
@@ -124,7 +119,7 @@ def main():
     recon_imgs = viz_data["reconstructed"]
 
     # Create figure with subplots
-    fig, axes = plt.subplots(2, 8, figsize=(16, 4))
+    fig, axes = plt.subplots(2, 8, figsize=(32, 8))
 
     # Plot original images on top row
     for i in range(8):
@@ -156,7 +151,7 @@ def main():
             generated = generate_from_latents(model, latent, device)
 
             plt.figure(figsize=(4, 4))
-            plt.imshow(generated[0].cpu().squeeze(), cmap="gray")
+            plt.imshow(generated[0, 2].cpu().squeeze(), cmap="gray")
             plt.axis("off")
             plt.title(f"Latent: {latent}")
             plt.savefig("custom_latent.png")

@@ -14,11 +14,11 @@ class PongEnv:
         self.device = device
 
         # Game parameters adjusted for 32x64 resolution
-        self.paddle_height = 8  # 1/4 of height
-        self.paddle_width = 1  # Single pixel width
-        self.ball_size = 1  # Single pixel ball
-        self.paddle_speed = 2  # Move 2 pixels per step
-        self.ball_speed = 1  # Move 1 pixel per step
+        self.paddle_height = 8
+        self.paddle_width = 1
+        self.ball_size = 3
+        self.paddle_speed = 1
+        self.ball_speed = 1
 
         # Initialize state
         self.reset()
@@ -58,11 +58,12 @@ class PongEnv:
         state[0, left_top:left_bottom, 0] = 1.0  # Left paddle
         state[0, right_top:right_bottom, -1] = 1.0  # Right paddle
 
-        # Draw ball (single pixel)
         ball_x = int(round(self.ball_x))
         ball_y = int(round(self.ball_y))
-        if 0 <= ball_x < self.width and 0 <= ball_y < self.height:
-            state[0, ball_y, ball_x] = 1.0
+        for i in range(self.ball_size):
+            for j in range(self.ball_size):
+                if 0 <= ball_x + i < self.width and 0 <= ball_y + j < self.height:
+                    state[0, ball_y + j, ball_x + i] = 1.0
 
         return state
 
@@ -97,23 +98,18 @@ class PongEnv:
         self.ball_y += self.ball_dy
 
         # Ball collision with top/bottom
-        if self.ball_y <= 0 or self.ball_y >= self.height - 1:
+        if self.ball_y <= 0 or self.ball_y >= self.height - self.ball_size:
             self.ball_dy *= -1
-            self.ball_y = np.clip(self.ball_y, 0, self.height - 1)
+            self.ball_y = np.clip(self.ball_y, 0, self.height - self.ball_size)
 
-        # Ball collision with paddles
         reward = 0
         done = False
 
-        # Left paddle collision
         if (
-            prev_ball_x > 0
-            and self.ball_x <= 1
+            self.ball_x < self.ball_size // 2
             and abs(self.ball_y - self.left_paddle) <= self.paddle_height // 2
         ):
-            # Calculate the hit position on the paddle
             hit_pos = (self.ball_y - self.left_paddle) / (self.paddle_height // 2)
-            # Adjust ball direction based on hit position
             self.ball_dy += hit_pos * 0.5
             self.ball_dx = (
                 abs(self.ball_dx) * 1.1
@@ -123,8 +119,8 @@ class PongEnv:
 
         # Right paddle collision
         elif (
-            prev_ball_x < self.width - 1
-            and self.ball_x >= self.width - 2
+            prev_ball_x < self.width - self.ball_size
+            and self.ball_x >= self.width - self.ball_size - 1
             and abs(self.ball_y - self.right_paddle) <= self.paddle_height // 2
         ):
             # Calculate the hit position on the paddle
@@ -134,7 +130,7 @@ class PongEnv:
             self.ball_dx = (
                 -abs(self.ball_dx) * 1.1
             )  # Bounce left, slight speed increase
-            self.ball_x = self.width - 2
+            self.ball_x = self.width - self.ball_size - 1
             reward = 1
 
         # Ball out of bounds
@@ -238,73 +234,72 @@ if __name__ == "__main__":
     # Create animation (interval=50 means 20 FPS)
     anim = FuncAnimation(fig, update, frames=None, interval=50, blit=True)
     plt.show()
-
-
-class PongDataset(Dataset):
-    frames_per_sample: int = 4
-
-    def __init__(self, num_episodes=250, num_frames=500, frames_per_sample=4):
-        self.data = self._generate_pong_dataset(num_episodes, num_frames)
-        self.frames_per_sample = frames_per_sample
-
-    def _generate_pong_dataset(self, num_episodes, num_frames):
-        dataset = []
-        env = PongEnv()
-        right_agent = PongAgent("right")
-
-        for _ in range(num_episodes):
-            state = env.reset()
-
-            for _ in range(num_frames):
-                right_action = right_agent.choose_action(env)
-                left_action = np.random.choice([-1, 0, 1])
-
-                next_state, reward, done = env.step(left_action, right_action)
-                # Append the image of the current state and the actions
-                dataset.append(
-                    (
-                        state.clone(),  # Image of the current state
-                        torch.tensor(left_action, dtype=torch.int64),  # Left action
-                        torch.tensor(right_action, dtype=torch.int64),
-                    )  # Right action
-                )
-                state = next_state
-
-                if done:
-                    state = env.reset()
-
-        return dataset
-
-    def __len__(self):
-        return len(self.data) - self.frames_per_sample + 1
-
-    def __getitem__(self, idx):
-        if idx + self.frames_per_sample > len(self.data):
-            raise IndexError("Index out of range for available data samples.")
-
-        samples = self.data[idx : idx + self.frames_per_sample]
-
-        states = [sample[0] for sample in samples]
-        left_actions = [sample[1] for sample in samples]
-        right_actions = [sample[2] for sample in samples]
-
-        stacked_states = torch.stack(states)
-
-        return stacked_states, torch.stack(left_actions), torch.stack(right_actions)
-
-
-dataset_path = "pong_dataset.pkl"
-
-# Check if the dataset already exists
-if os.path.exists(dataset_path):
-    # Load the dataset from the file
-    with open(dataset_path, "rb") as f:
-        pong_dataset = pickle.load(f)
-    print(f"Loaded existing dataset with {len(pong_dataset)} samples.")
 else:
-    # Generate the dataset and save it to a file
-    print("Generating dataset... This might take a while.")
-    pong_dataset = PongDataset()
-    with open(dataset_path, "wb") as f:
-        pickle.dump(pong_dataset, f)
-    print(f"Generated and saved dataset with {len(pong_dataset)} samples.")
+
+    class PongDataset(Dataset):
+        frames_per_sample: int = 4
+
+        def __init__(self, num_episodes=250, num_frames=500, frames_per_sample=4):
+            self.data = self._generate_pong_dataset(num_episodes, num_frames)
+            self.frames_per_sample = frames_per_sample
+
+        def _generate_pong_dataset(self, num_episodes, num_frames):
+            dataset = []
+            env = PongEnv()
+            right_agent = PongAgent("right")
+
+            for _ in range(num_episodes):
+                state = env.reset()
+
+                for _ in range(num_frames):
+                    right_action = right_agent.choose_action(env)
+                    left_action = np.random.choice([-1, 0, 1])
+
+                    next_state, reward, done = env.step(left_action, right_action)
+                    # Append the image of the current state and the actions
+                    dataset.append(
+                        (
+                            state.clone(),  # Image of the current state
+                            torch.tensor(left_action, dtype=torch.int64),  # Left action
+                            torch.tensor(right_action, dtype=torch.int64),
+                        )  # Right action
+                    )
+                    state = next_state
+
+                    if done:
+                        state = env.reset()
+
+            return dataset
+
+        def __len__(self):
+            return len(self.data) - self.frames_per_sample + 1
+
+        def __getitem__(self, idx):
+            if idx + self.frames_per_sample > len(self.data):
+                raise IndexError("Index out of range for available data samples.")
+
+            samples = self.data[idx : idx + self.frames_per_sample]
+
+            states = [sample[0] for sample in samples]
+            left_actions = [sample[1] for sample in samples]
+            right_actions = [sample[2] for sample in samples]
+
+            stacked_states = torch.stack(states)
+
+            return stacked_states, torch.stack(left_actions), torch.stack(right_actions)
+
+    dataset_path = "pong_dataset.pkl"
+
+    # Check if the dataset already exists
+    if os.path.exists(dataset_path):
+        # Load the dataset from the file
+        with open(dataset_path, "rb") as f:
+            pong_dataset = pickle.load(f)
+        print(f"Loaded existing dataset with {len(pong_dataset)} samples.")
+    else:
+        # Generate the dataset and save it to a file
+        print("Generating dataset... This might take a while.")
+        pong_dataset = PongDataset()
+        with open(dataset_path, "wb") as f:
+            pickle.dump(pong_dataset, f)
+        print(f"Generated and saved dataset with {len(pong_dataset)} samples.")
