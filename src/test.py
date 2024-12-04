@@ -4,7 +4,7 @@ from vae import ViTVAE
 import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 
-from PongSim import pong_dataset
+from PongSim import pong_test_dataset
 
 
 @torch.no_grad()  # Disable gradient computation during evaluation
@@ -91,8 +91,8 @@ def generate_from_latents(model, latent_values, device="cuda"):
         return generated
 
 
-pong_dataset.frames_per_sample = 32
-test_loader = DataLoader(pong_dataset, batch_size=32, shuffle=False)
+pong_test_dataset.frames_per_sample = 32
+test_loader = DataLoader(pong_test_dataset, batch_size=32, shuffle=False)
 
 
 def main():

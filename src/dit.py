@@ -111,7 +111,6 @@ def train_dit(
                 ],
                 dim=-1,
             )  # [batch_size, latent_dim * 2 + 1]
-            print(concat.shape)
             pred_mu, pred_logvar = dit_model(concat)
 
             # Reconstruction loss (using KL divergence between predicted and target distributions)
