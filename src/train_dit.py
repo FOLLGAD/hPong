@@ -19,7 +19,7 @@ vae_model.load_state_dict(checkpoint["model_state_dict"])
 
 # dit_model = DiT(latent_dim=4).to(device)
 # optimizer = torch.optim.Adam(dit_model.parameters(), lr=1e-4)
-from ffn import FFN
+from ffn import FFN, train_dit
 
 dit_model = FFN(latent_dim=4).to(device)
 optimizer = torch.optim.Adam(dit_model.parameters(), lr=1e-4)
