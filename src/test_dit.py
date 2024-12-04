@@ -138,12 +138,12 @@ def live_test():
 
     vae.eval()
 
-    dit_model = DiT(
+    dit_model = FFN(
         latent_dim=4,
     ).to(device)
 
     dit_checkpoint = torch.load(
-        "best/dit_pong_best.pt", map_location=torch.device(device)
+        "dit_checkpoints/best_model.pt", map_location=torch.device(device)
     )
     dit_model.load_state_dict(dit_checkpoint["model_state_dict"])
 
@@ -172,7 +172,7 @@ def live_test():
 
         # Predict the next latent distribution using DiT
         left_action = torch.zeros((1, 1), device=device)  # TODO: get this from the user
-        pred_mu, pred_logvar = dit_model(torch.cat([mu, logvar, left_action], dim=-1))
+        pred_mu, pred_logvar = dit_model(mu, logvar, left_action)
 
         # Reparameterize to get the latent vector
         latent_z = vae.reparameterize(pred_mu, pred_logvar)
