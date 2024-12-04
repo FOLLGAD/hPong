@@ -24,22 +24,19 @@ def generate_from_latents(model, latent_values, device="cuda"):
 
 def main():
     vae = ViTVAE(
-        img_size=32,
+        img_size=(32, 64),
         patch_size=4,
         embed_dim=96,
         depth=6,
         num_heads=8,
         latent_dim=4,
     ).to(device)
-    checkpoint = torch.load("best/best_model-VAE.pt", map_location=torch.device(device))
+    checkpoint = torch.load("best/vae_pong_best.pt", map_location=torch.device(device))
     vae.load_state_dict(checkpoint["model_state_dict"])
 
-    test_dataset = SequentialBouncingBallDataset(
-        num_sequences=1000,
-        sequence_length=4,
-        img_size=32,
-    )
-    test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
+    from PongSim import pong_test_dataset
+
+    test_loader = DataLoader(pong_test_dataset, batch_size=32, shuffle=False)
 
     vae.eval()
 
@@ -48,7 +45,7 @@ def main():
     ).to(device)
 
     dit_checkpoint = torch.load(
-        "best/best_model-DiT.pt", map_location=torch.device(device)
+        "best/dit_pong_best.pt", map_location=torch.device(device)
     )
     dit_model.load_state_dict(dit_checkpoint["model_state_dict"])
 
@@ -56,8 +53,8 @@ def main():
     original_images = []
     reconstructed_images = []
 
-    for batch in test_loader:
-        x = batch.to(device)
+    for x, left_action, right_action in test_loader:
+        x = x.to(device)
 
         # Encode the first 3 frames to latent space using VAE
         mu, logvar = vae.encoder(x[:, :3])
@@ -66,7 +63,12 @@ def main():
         # Simulate 30 frames forward
         for _ in range(32):
             # Predict the next latent distribution using DiT
-            pred_mu, pred_logvar = dit_model(torch.cat([mu, logvar], dim=-1))
+            left_action = torch.zeros(
+                (32, 1), device=device
+            )  # TODO: get this from the user
+            pred_mu, pred_logvar = dit_model(
+                torch.cat([mu, logvar, left_action], dim=-1)
+            )
 
             # Reparameterize to get the latent vector
             latent_z = vae.reparameterize(pred_mu, pred_logvar)

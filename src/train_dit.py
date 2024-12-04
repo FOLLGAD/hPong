@@ -1,24 +1,27 @@
 import torch
+from torch.utils.data import DataLoader
 
 from dit import DiT, train_dit
 from vae import ViTVAE
-from generate_data import train_loader
+from PongSim import pong_dataset
 
 device = "cuda" if torch.cuda.is_available() else "mps"
 
 vae_model = ViTVAE(
-    img_size=32,
+    img_size=(32, 64),
     patch_size=4,
     embed_dim=96,
     depth=6,
     num_heads=8,
     latent_dim=4,
 ).to(device)
-checkpoint = torch.load("checkpoints/latest_model.pt")
+checkpoint = torch.load("best/vae_pong_best.pt", map_location=torch.device(device))
 vae_model.load_state_dict(checkpoint["model_state_dict"])
 
 dit_model = DiT(latent_dim=4).to(device)
 optimizer = torch.optim.Adam(dit_model.parameters(), lr=1e-4)
+
+train_loader = DataLoader(pong_dataset, batch_size=32, shuffle=True)
 
 train_dit(
     dit_model=dit_model,

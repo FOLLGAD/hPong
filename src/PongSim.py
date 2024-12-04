@@ -117,7 +117,6 @@ class PongEnv:
             self.ball_x = 1
             reward = 1
 
-        # Right paddle collision
         elif (
             prev_ball_x < self.width - self.ball_size
             and self.ball_x >= self.width - self.ball_size - 1
@@ -255,15 +254,19 @@ else:
                     right_action = right_agent.choose_action(env)
                     left_action = np.random.choice([-1, 0, 1])
 
-                    next_state, reward, done = env.step(left_action, right_action)
-                    # Append the image of the current state and the actions
                     dataset.append(
                         (
                             state.clone(),  # Image of the current state
-                            torch.tensor(left_action, dtype=torch.int64),  # Left action
+                            torch.tensor(
+                                left_action, dtype=torch.int64
+                            ),  # Left action, save before stepping
                             torch.tensor(right_action, dtype=torch.int64),
                         )  # Right action
                     )
+
+                    next_state, reward, done = env.step(
+                        left_action, right_action
+                    )  # Step the environment
                     state = next_state
 
                     if done:
@@ -287,6 +290,8 @@ else:
             stacked_states = torch.stack(states)
 
             return stacked_states, torch.stack(left_actions), torch.stack(right_actions)
+    
+    pong_test_dataset = PongDataset(num_episodes=10, num_frames=32)
 
     dataset_path = "pong_dataset.pkl"
 

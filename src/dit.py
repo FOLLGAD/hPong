@@ -10,7 +10,7 @@ class DiT(nn.Module):
     def __init__(self, latent_dim=4, hidden_dim=128, nhead=8, num_layers=4):
         super().__init__()
 
-        self.input_proj = nn.Linear(latent_dim * 2, hidden_dim)
+        self.input_proj = nn.Linear(latent_dim * 2 + 1, hidden_dim)
 
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=hidden_dim,
@@ -23,7 +23,7 @@ class DiT(nn.Module):
         # Separate projection heads for mean and logvar
         self.mu_proj = nn.Linear(hidden_dim, latent_dim)
         self.logvar_proj = nn.Linear(hidden_dim, latent_dim)
-    
+
         self._initialize_weights()
 
     def _initialize_weights(self):
@@ -79,8 +79,12 @@ def train_dit(
         total_kl = 0
 
         pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs}")
-        for batch_idx, x in enumerate(pbar):
+        for _batch_idx, (x, left_action, _right_action) in enumerate(pbar):
             x = x.to(device)
+            # left_action: [batch_size, frame_number]
+            left_action = left_action[:, 2].unsqueeze(-1) # take the 3rd (active) frame
+            left_action = left_action.to(device)
+
             B, F, C, H, W = x.shape
 
             # Get consecutive frame pairs
@@ -95,9 +99,20 @@ def train_dit(
 
             # Train DiT to predict the next latent distribution
             optimizer.zero_grad()
-            pred_mu, pred_logvar = dit_model(
-                torch.cat([input_mu, input_logvar], dim=-1)
-            )
+
+            # input_mu: [batch_size, latent_dim]
+            # input_logvar: [batch_size, latent_dim]
+
+            concat = torch.cat(
+                [
+                    input_mu,
+                    input_logvar,
+                    left_action,
+                ],
+                dim=-1,
+            )  # [batch_size, latent_dim * 2 + 1]
+            print(concat.shape)
+            pred_mu, pred_logvar = dit_model(concat)
 
             # Reconstruction loss (using KL divergence between predicted and target distributions)
             recon_loss = nn.functional.mse_loss(pred_mu, target_mu)
