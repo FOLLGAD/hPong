@@ -1,9 +1,9 @@
 import numpy as np
-from dit import DiT
 from vae import ViTVAE
 import torch
 from torch.utils.data import DataLoader
 from matplotlib import pyplot as plt
+from ffn import FFN
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -39,7 +39,7 @@ def main():
 
     vae.eval()
 
-    dit_model = DiT(
+    dit_model = FFN(
         latent_dim=4,
     ).to(device)
 

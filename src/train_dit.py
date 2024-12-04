@@ -1,7 +1,6 @@
 import torch
 from torch.utils.data import DataLoader
 
-from dit import DiT, train_dit
 from vae import ViTVAE
 from PongSim import pong_dataset
 
