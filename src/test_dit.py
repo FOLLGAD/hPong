@@ -1,5 +1,4 @@
 import numpy as np
-from data import SequentialBouncingBallDataset
 from dit import DiT
 from vae import ViTVAE
 import torch
@@ -118,5 +117,85 @@ def main():
     print("\nSaved simulation comparison to simulation_comparison.png")
 
 
+
+def live_test():
+    import matplotlib.pyplot as plt
+    from matplotlib.animation import FuncAnimation
+
+    vae = ViTVAE(
+        img_size=(32, 64),
+        patch_size=4,
+        embed_dim=96,
+        depth=6,
+        num_heads=8,
+        latent_dim=4,
+    ).to(device)
+    checkpoint = torch.load("best/vae_pong_best.pt", map_location=torch.device(device))
+    vae.load_state_dict(checkpoint["model_state_dict"])
+
+    from PongSim import pong_test_dataset
+
+    test_loader = DataLoader(pong_test_dataset, batch_size=1, shuffle=False)
+
+    vae.eval()
+
+    dit_model = DiT(
+        latent_dim=4,
+    ).to(device)
+
+    dit_checkpoint = torch.load(
+        "best/dit_pong_best.pt", map_location=torch.device(device)
+    )
+    dit_model.load_state_dict(dit_checkpoint["model_state_dict"])
+
+    plt.style.use("dark_background")
+
+    # Set up the figure and animation
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+    global mu, logvar, img
+    for x, left_action, right_action in test_loader:
+        img = ax.imshow(
+            x[0, 2].squeeze(),
+            cmap="gray",
+            interpolation="nearest",
+        )
+        x = x.to(device)
+        mu, logvar = vae.encoder(x[:, :3])  # seed it with 3 frames
+        break
+
+    def update(frame):
+        global mu, logvar, img
+        left_action = np.random.choice([-1.0])
+        # Encode the first 3 frames to latent space using VAE
+
+        # Predict the next latent distribution using DiT
+        left_action = torch.zeros((1, 1), device=device)  # TODO: get this from the user
+        pred_mu, pred_logvar = dit_model(torch.cat([mu, logvar, left_action], dim=-1))
+
+        # Reparameterize to get the latent vector
+        latent_z = vae.reparameterize(pred_mu, pred_logvar)
+
+        # Decode the latent vector to generate the next frame
+        recon_x = generate_from_latents(vae, latent_z, device)
+
+        # Store the generated frame
+        recon_x = recon_x.cpu()
+        recon_x = recon_x.squeeze(0)  # Remove the batch dimension
+        recon_x = recon_x.permute(1, 2, 0)  # (32, 64, 3)
+
+        img.set_array(recon_x)
+
+        mu, logvar = pred_mu, pred_logvar
+
+        return [img]
+
+    # Create animation (interval=50 means 20 FPS)
+    anim = FuncAnimation(fig, update, frames=None, interval=150, blit=True)
+    plt.show()
+
+
 if __name__ == "__main__":
-    main()
+    live_test()
