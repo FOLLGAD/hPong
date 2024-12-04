@@ -47,15 +47,6 @@ class DiT(nn.Module):
         logvar = self.logvar_proj(x)
         return mu, logvar
 
-    def predict_next_state(self, current_mu, current_logvar):
-        """Predict the next latent state distribution given the current state."""
-        with torch.no_grad():
-            # Concatenate current mu and logvar as input
-            model_input = torch.cat([current_mu, current_logvar], dim=-1)
-            # Get predicted distribution parameters
-            pred_mu, pred_logvar = self.forward(model_input)
-            return pred_mu, pred_logvar
-
 
 def train_dit(
     dit_model,
@@ -82,7 +73,7 @@ def train_dit(
         for _batch_idx, (x, left_action, _right_action) in enumerate(pbar):
             x = x.to(device)
             # left_action: [batch_size, frame_number]
-            left_action = left_action[:, 2].unsqueeze(-1) # take the 3rd (active) frame
+            left_action = left_action[:, 2].unsqueeze(-1)  # take the 3rd (active) frame
             left_action = left_action.to(device)
 
             B, F, C, H, W = x.shape
