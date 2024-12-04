@@ -18,7 +18,11 @@ vae_model = ViTVAE(
 checkpoint = torch.load("best/vae_pong_best.pt", map_location=torch.device(device))
 vae_model.load_state_dict(checkpoint["model_state_dict"])
 
-dit_model = DiT(latent_dim=4).to(device)
+# dit_model = DiT(latent_dim=4).to(device)
+# optimizer = torch.optim.Adam(dit_model.parameters(), lr=1e-4)
+from ffn import FFN
+
+dit_model = FFN(latent_dim=4).to(device)
 optimizer = torch.optim.Adam(dit_model.parameters(), lr=1e-4)
 
 train_loader = DataLoader(pong_dataset, batch_size=32, shuffle=True)

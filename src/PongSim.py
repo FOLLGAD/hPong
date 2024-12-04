@@ -304,7 +304,7 @@ else:
     else:
         # Generate the dataset and save it to a file
         print("Generating dataset... This might take a while.")
-        pong_dataset = PongDataset()
+        pong_dataset = PongDataset(num_episodes=100)
         with open(dataset_path, "wb") as f:
             pickle.dump(pong_dataset, f)
         print(f"Generated and saved dataset with {len(pong_dataset)} samples.")

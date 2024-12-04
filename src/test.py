@@ -119,17 +119,17 @@ def main():
     recon_imgs = viz_data["reconstructed"]
 
     # Create figure with subplots
-    fig, axes = plt.subplots(2, 8, figsize=(32, 8))
+    fig, axes = plt.subplots(2, 3, figsize=(12, 3))
 
     # Plot original images on top row
-    for i in range(8):
-        axes[0, i].imshow(orig_imgs[i, 2].squeeze(), cmap="gray")
+    for i in range(3):
+        axes[0, i].imshow(orig_imgs[0, i].squeeze(), cmap="gray")
         axes[0, i].axis("off")
         axes[0, i].set_title("Original")
 
     # Plot reconstructed images on bottom row
-    for i in range(8):
-        axes[1, i].imshow(recon_imgs[i, 2].squeeze(), cmap="gray")
+    for i in range(3):
+        axes[1, i].imshow(recon_imgs[0, i].squeeze(), cmap="gray")
         axes[1, i].axis("off")
         axes[1, i].set_title("Reconstructed")
 
