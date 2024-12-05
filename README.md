@@ -8,9 +8,8 @@
 
 VAE:
 
-- [?] Split each frame into its own VAE encoding/decoding.
-  Right now, the VAE is encoding/decoding 3 frames at once, which is not flexible.
-  (Done, just needs testing)
+- [ ] make vae training output images after each epoch
+- [x] Split each frame into its own VAE encoding/decoding.
 
 DiT:
 

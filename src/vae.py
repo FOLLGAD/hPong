@@ -207,7 +207,7 @@ class ViTVAE(nn.Module):
         return x_recon, mu, logvar
 
 
-def train_step(model, optimizer, x, beta=0.0002):
+def train_step(model, optimizer, x, beta=0.05):
     optimizer.zero_grad()
 
     # Forward pass

@@ -22,8 +22,7 @@ def evaluate_vae(model, test_loader, device="cuda"):
         if i >= 2:
             break
 
-        # Unpack the batch - TensorDataset returns a tuple
-        x = x[:, :3].to(device)  # Changed from x = x.to(device)
+        x = x[:, 0].to(device)
 
         # Rest of the function remains the same
         recon_x, mu, logvar = model(x)
@@ -106,7 +105,7 @@ def main():
         num_heads=8,
         latent_dim=4,
     ).to(device)
-    checkpoint = torch.load("best/vae_pong_best.pt", map_location=torch.device(device))
+    checkpoint = torch.load("best/best_vae_v2.pt", map_location=torch.device(device))
     model.load_state_dict(checkpoint["model_state_dict"])
 
     model.eval()
@@ -123,13 +122,13 @@ def main():
 
     # Plot original images on top row
     for i in range(8):
-        axes[0, i].imshow(orig_imgs[i, 2].squeeze(), cmap="gray")
+        axes[0, i].imshow(orig_imgs[i, 0].squeeze(), cmap="gray")
         axes[0, i].axis("off")
         axes[0, i].set_title("Original")
 
     # Plot reconstructed images on bottom row
     for i in range(8):
-        axes[1, i].imshow(recon_imgs[i, 2].squeeze(), cmap="gray")
+        axes[1, i].imshow(recon_imgs[i, 0].squeeze(), cmap="gray")
         axes[1, i].axis("off")
         axes[1, i].set_title("Reconstructed")
 
@@ -151,7 +150,7 @@ def main():
             generated = generate_from_latents(model, latent, device)
 
             plt.figure(figsize=(4, 4))
-            plt.imshow(generated[0, 2].cpu().squeeze(), cmap="gray")
+            plt.imshow(generated[0].cpu().squeeze(), cmap="gray")
             plt.axis("off")
             plt.title(f"Latent: {latent}")
             plt.savefig("custom_latent.png")
