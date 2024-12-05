@@ -15,7 +15,7 @@ vae_model = ViTVAE(
     num_heads=8,
     latent_dim=4,
 ).to(device)
-checkpoint = torch.load("best/vae_pong_best.pt", map_location=torch.device(device))
+checkpoint = torch.load("best/best_vae_v2.pt", map_location=torch.device(device))
 vae_model.load_state_dict(checkpoint["model_state_dict"])
 
 dit_model = DiT(latent_dim=4).to(device)
@@ -54,6 +54,6 @@ train_dit(
     train_loader=train_loader,
     optimizer=optimizer,
     epochs=100,
-    beta=1e-8,  # Adjust this weight to balance reconstruction vs KL loss
+    beta=1e-9,  # Adjust this weight to balance reconstruction vs KL loss
     device=device,
 )
