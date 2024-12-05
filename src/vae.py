@@ -236,6 +236,7 @@ def train_vae(
     epochs=100,
     device="cuda",
     checkpoint_dir="checkpoints",
+    start_epoch=0,
 ):
     # Create checkpoint directory if it doesn't exist
     os.makedirs(checkpoint_dir, exist_ok=True)
@@ -243,7 +244,7 @@ def train_vae(
     model.train()
     best_loss = float("inf")
 
-    for epoch in range(epochs):
+    for epoch in range(start_epoch, epochs):
         total_loss = 0
         total_recon = 0
         total_kl = 0

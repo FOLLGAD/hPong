@@ -5,6 +5,23 @@ from PongSim import pong_dataset
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
+import argparse
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Train a VAE model.")
+    parser.add_argument(
+        "--continue",
+        dest="continue_training",
+        action="store_true",
+        help="Continue training from the last checkpoint",
+    )
+    return parser.parse_args()
+
+
+args = parse_args()
+
+
 # Model params
 img_size = (32, 64)
 patch_size = 4
@@ -23,9 +40,18 @@ vae = ViTVAE(
     latent_dim=latent_dim,
 ).to(device)
 
-# dit = DiT(latent_dim=latent_dim, hidden_dim=128, nhead=8, num_layers=4).to(device)
-
-# Training
 optimizer = torch.optim.Adam(vae.parameters(), lr=1e-4)
 train_loader = DataLoader(pong_dataset, batch_size=32, shuffle=True)
-train_vae(vae, train_loader, optimizer, epochs=100, device=device)
+
+if args.continue_training:
+    checkpoint = torch.load(
+        "checkpoints/latest_model.pt", map_location=torch.device(device)
+    )
+    vae.load_state_dict(checkpoint["model_state_dict"])
+    optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+    start_epoch = checkpoint["epoch"]
+else:
+    start_epoch = 0
+train_vae(
+    vae, train_loader, optimizer, epochs=100, device=device, start_epoch=start_epoch
+)
