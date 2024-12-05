@@ -54,7 +54,7 @@ def train_dit(
     train_loader,
     optimizer,
     epochs=100,
-    beta=1.0,  # Weight for KL divergence loss
+    beta=1.0,
     device="cuda",
     checkpoint_dir="dit_checkpoints",
 ):

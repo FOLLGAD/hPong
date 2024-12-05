@@ -3,6 +3,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 from tqdm import tqdm
 import os
+import numpy as np
+import math
+
+from einops import rearrange, reduce, asnumpy, parse_shape
+from einops.layers.torch import Rearrange, Reduce
 
 
 class PatchEmbed(nn.Module):
@@ -30,7 +35,6 @@ class ViTEncoder(nn.Module):
         img_size=(32, 64),
         patch_size=4,
         in_chans=1,
-        num_frames=3,
         embed_dim=96,
         depth=6,
         num_heads=8,
@@ -40,9 +44,7 @@ class ViTEncoder(nn.Module):
         super().__init__()
 
         # Patch embedding
-        self.patch_embed = PatchEmbed(
-            img_size, patch_size, in_chans * num_frames, embed_dim
-        )
+        self.patch_embed = PatchEmbed(img_size, patch_size, in_chans, embed_dim)
         num_patches = self.patch_embed.n_patches
 
         # Positional embedding
@@ -72,11 +74,7 @@ class ViTEncoder(nn.Module):
         nn.init.normal_(self.pos_embed, std=0.02)
 
     def forward(self, x):
-        # x shape: (Batch size, Frames, Channels, Height, Width)
-        B, F, C, H, W = x.shape
-        x = x.reshape(
-            B, F * C, H, W
-        )  # Reshape to (Batch size, Channels * Frames, Height, Width)
+        # x shape: (Batch size, Channels, Height, Width)
 
         x = self.patch_embed(x)
         x = x + self.pos_embed
@@ -94,7 +92,6 @@ class ViTDecoder(nn.Module):
         img_size=(32, 64),
         patch_size=4,
         in_chans=1,
-        num_frames=3,
         embed_dim=96,
         depth=6,
         num_heads=8,
@@ -123,9 +120,7 @@ class ViTDecoder(nn.Module):
         self.transformer = nn.TransformerEncoder(decoder_layer, num_layers=depth)
 
         # Final projection to patches
-        self.final_proj = nn.Linear(
-            embed_dim, patch_size * patch_size * in_chans * num_frames
-        )
+        self.final_proj = nn.Linear(embed_dim, patch_size * patch_size * in_chans)
 
         self.initialize_weights()
 
@@ -146,9 +141,8 @@ class ViTDecoder(nn.Module):
         x = self.transformer(x)
 
         # Project to patches
-        x = self.final_proj(x)
+        x = self.final_proj(x)  # (B, C, H, W)
 
-        # Reshape to image
         x = x.view(
             B,
             self.img_size[0] // self.patch_size,
@@ -156,12 +150,10 @@ class ViTDecoder(nn.Module):
             self.patch_size,
             self.patch_size,
             -1,
-        )
-        x = x.permute(0, 5, 1, 3, 2, 4)
+        )  # (B, H/P, W/P, P, P, C)
+        x = x.permute(0, 5, 1, 3, 2, 4)  # (B, C, H/P, W/P, P, P)
 
-        x = x.reshape(
-            B, -1, self.img_size[0], self.img_size[1]
-        )  # Shape: (B, C*F, H, W)
+        x = x.reshape(B, -1, self.img_size[0], self.img_size[1])  # (B, C*H/P*W/P, H, W)
 
         return torch.sigmoid(x)
 
@@ -172,7 +164,6 @@ class ViTVAE(nn.Module):
         img_size=(32, 64),
         patch_size=4,
         in_chans=1,
-        num_frames=3,
         embed_dim=96,
         depth=6,
         num_heads=8,
@@ -185,7 +176,6 @@ class ViTVAE(nn.Module):
             img_size,
             patch_size,
             in_chans,
-            num_frames,
             embed_dim,
             depth,
             num_heads,
@@ -196,7 +186,6 @@ class ViTVAE(nn.Module):
             img_size,
             patch_size,
             in_chans,
-            num_frames,
             embed_dim,
             depth,
             num_heads,
@@ -240,9 +229,6 @@ def train_step(model, optimizer, x, beta=0.0002):
     return loss.item(), recon_loss.item(), kl_loss.item()
 
 
-num_frames = 3
-
-
 def train_vae(
     model,
     train_loader,
@@ -265,8 +251,8 @@ def train_vae(
         # Add progress bar for batches
         pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs}")
         for batch_idx, (x, left_action, right_action) in enumerate(pbar):
-            x = x[:, :num_frames]  # Only take the first 3 frames
-            # x is [batch_size, num_frames, channels, height, width]
+            x = x[:, 0]  # Take the first frame
+            # x is [batch_size, channels, height, width]
 
             x = x.to(device)
 
