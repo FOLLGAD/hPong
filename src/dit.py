@@ -43,7 +43,7 @@ class DiT(nn.Module):
         x = self.transformer(x)
 
         # Assuming you want the output corresponding to the last frame
-        x = x[:, -1, :]  # Select the last frame's output
+        x = x[:, -1, :].unsqueeze(1)  # Select the last frame's output
 
         mu = self.mu_proj(x)
         logvar = self.logvar_proj(x)

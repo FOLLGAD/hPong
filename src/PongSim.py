@@ -153,35 +153,6 @@ class PongAgent:
     def __init__(self, side="right"):
         self.side = side  # left or right
 
-    def predict_ball_trajectory(self, state, ball_pos, ball_vel):
-        """Predict where the ball will intersect with the agent's paddle plane."""
-        if ball_pos is None or ball_vel is None:
-            return None
-
-        ball_x, ball_y = ball_pos
-        vel_x, vel_y = ball_vel
-
-        # Only predict if ball is moving towards our side
-        if (self.side == "left" and vel_x > 0) or (self.side == "right" and vel_x < 0):
-            return None
-
-        # Calculate time to reach paddle plane
-        target_x = 0 if self.side == "left" else state.shape[2] - 1
-        time_to_intersect = abs((target_x - ball_x) / vel_x)
-
-        # Calculate y-intersection
-        future_y = ball_y + vel_y * time_to_intersect
-
-        # Account for bounces
-        height = state.shape[1]
-        while future_y < 0 or future_y >= height:
-            if future_y < 0:
-                future_y = -future_y
-            if future_y >= height:
-                future_y = 2 * (height - 1) - future_y
-
-        return future_y
-
     def choose_action(self, env: PongEnv):
         """Choose an action based on current state."""
         current_paddle_y = env.right_paddle
@@ -202,109 +173,84 @@ class PongAgent:
             return 0  # Stay
 
 
-if __name__ == "__main__":
-    import matplotlib.pyplot as plt
-    from matplotlib.animation import FuncAnimation
+class PongDataset(Dataset):
+    frames_per_sample: int = 4
 
-    plt.style.use("dark_background")
+    def __init__(self, num_episodes=250, num_frames=500, frames_per_sample=4):
+        self.data = self._generate_pong_dataset(num_episodes, num_frames)
+        self.frames_per_sample = frames_per_sample
 
-    env = PongEnv()
-    state = env.reset()
-    right_agent = PongAgent("right")
+    def _generate_pong_dataset(self, num_episodes, num_frames):
+        dataset = []
+        env = PongEnv()
+        right_agent = PongAgent("right")
+        left_agent = PongAgent("left")
 
-    # Set up the figure and animation
-    fig, ax = plt.subplots(figsize=(8, 4))
-    ax.set_xticks([])
-    ax.set_yticks([])
-    img = ax.imshow(env.render(), cmap="gray", interpolation="nearest")
+        for _ in range(num_episodes):
+            state = env.reset()
 
-    def update(frame):
-        right_action = right_agent.choose_action(env)
-        left_action = np.random.choice([-1.0, 0.0, 1.0])
+            is_random_player = np.random.random() < 0.5
 
-        state, reward, done = env.step(left_action, right_action)
-        if done:
-            env.reset()
-
-        img.set_array(env.render())
-
-        return [img]
-
-    # Create animation (interval=50 means 20 FPS)
-    anim = FuncAnimation(fig, update, frames=None, interval=50, blit=True)
-    plt.show()
-else:
-
-    class PongDataset(Dataset):
-        frames_per_sample: int = 4
-
-        def __init__(self, num_episodes=250, num_frames=500, frames_per_sample=4):
-            self.data = self._generate_pong_dataset(num_episodes, num_frames)
-            self.frames_per_sample = frames_per_sample
-
-        def _generate_pong_dataset(self, num_episodes, num_frames):
-            dataset = []
-            env = PongEnv()
-            right_agent = PongAgent("right")
-
-            for _ in range(num_episodes):
-                state = env.reset()
-
-                for _ in range(num_frames):
-                    right_action = right_agent.choose_action(env)
+            for _ in range(num_frames):
+                if is_random_player:
                     left_action = np.random.choice([-1, 0, 1])
+                    right_action = right_agent.choose_action(env)
+                else:
+                    left_action = left_agent.choose_action(env)
+                    right_action = right_agent.choose_action(env)
 
-                    dataset.append(
-                        (
-                            state.clone(),  # Image of the current state
-                            torch.tensor(
-                                left_action, dtype=torch.int64
-                            ),  # Left action, save before stepping
-                            torch.tensor(right_action, dtype=torch.int64),
-                        )  # Right action
-                    )
+                dataset.append(
+                    (
+                        state.clone(),  # Image of the current state
+                        torch.tensor(
+                            left_action, dtype=torch.int64
+                        ),  # Left action, save before stepping
+                        torch.tensor(right_action, dtype=torch.int64),
+                    )  # Right action
+                )
 
-                    next_state, reward, done = env.step(
-                        left_action, right_action
-                    )  # Step the environment
-                    state = next_state
+                next_state, reward, done = env.step(
+                    left_action, right_action
+                )  # Step the environment
+                state = next_state
 
-                    if done:
-                        state = env.reset()
+                if done:
+                    state = env.reset()
 
-            return dataset
+        return dataset
 
-        def __len__(self):
-            return len(self.data) - self.frames_per_sample + 1
+    def __len__(self):
+        return len(self.data) - self.frames_per_sample + 1
 
-        def __getitem__(self, idx):
-            if idx + self.frames_per_sample > len(self.data):
-                raise IndexError("Index out of range for available data samples.")
+    def __getitem__(self, idx):
+        if idx + self.frames_per_sample > len(self.data):
+            raise IndexError("Index out of range for available data samples.")
 
-            samples = self.data[idx : idx + self.frames_per_sample]
+        samples = self.data[idx : idx + self.frames_per_sample]
 
-            states = [sample[0] for sample in samples]
-            left_actions = [sample[1] for sample in samples]
-            right_actions = [sample[2] for sample in samples]
+        states = [sample[0] for sample in samples]
+        left_actions = [sample[1] for sample in samples]
+        right_actions = [sample[2] for sample in samples]
 
-            stacked_states = torch.stack(states)
+        stacked_states = torch.stack(states)
 
-            return stacked_states, torch.stack(left_actions), torch.stack(right_actions)
-    
-    pong_test_dataset = PongDataset(num_episodes=10, num_frames=32)
+        return stacked_states, torch.stack(left_actions), torch.stack(right_actions)
 
-    dataset_path = "pong_dataset.pkl"
 
-    # Check if the dataset already exists
-    if os.path.exists(dataset_path):
-        # Load the dataset from the file
-        with open(dataset_path, "rb") as f:
-            pong_dataset = pickle.load(f)
-        print(f"Loaded existing dataset with {len(pong_dataset)} samples.")
-    else:
-        # Generate the dataset and save it to a file
-        print("Generating dataset... This might take a while.")
-        pong_dataset = PongDataset()
-        with open(dataset_path, "wb") as f:
-            pickle.dump(pong_dataset, f)
-        print(f"Generated and saved dataset with {len(pong_dataset)} samples.")
+pong_test_dataset = PongDataset(num_episodes=10, num_frames=32)
+
+dataset_path = "pong_dataset.pkl"
+
+# Check if the dataset already exists
+if os.path.exists(dataset_path):
+    # Load the dataset from the file
+    with open(dataset_path, "rb") as f:
+        pong_dataset = pickle.load(f)
+    print(f"Loaded existing dataset with {len(pong_dataset)} samples.")
+else:
+    # Generate the dataset and save it to a file
+    print("Generating dataset... This might take a while.")
+    pong_dataset = PongDataset()
+    with open(dataset_path, "wb") as f:
+        pickle.dump(pong_dataset, f)
+    print(f"Generated and saved dataset with {len(pong_dataset)} samples.")
