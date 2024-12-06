@@ -1,3 +1,4 @@
+from einops import rearrange
 import numpy as np
 from dit import DiT
 from vae import ViTVAE
@@ -30,7 +31,7 @@ def main():
         num_heads=8,
         latent_dim=4,
     ).to(device)
-    checkpoint = torch.load("best/vae_pong_best.pt", map_location=torch.device(device))
+    checkpoint = torch.load("best/best_vae_v2.pt", map_location=torch.device(device))
     vae.load_state_dict(checkpoint["model_state_dict"])
 
     from PongSim import pong_test_dataset
@@ -44,7 +45,7 @@ def main():
     ).to(device)
 
     dit_checkpoint = torch.load(
-        "best/dit_pong_best.pt", map_location=torch.device(device)
+        "best/best_dit_v2.pt", map_location=torch.device(device)
     )
     dit_model.load_state_dict(dit_checkpoint["model_state_dict"])
 
@@ -56,8 +57,13 @@ def main():
         x = x.to(device)
 
         # Encode the first 3 frames to latent space using VAE
-        mu, logvar = vae.encoder(x[:, :3])
+        # shape: (batch_size, frames, channels, height, width)
         original_images.append(x[:, :3].cpu())  # Store the original 3 frames
+        B, F, C, H, W = x.shape
+        x = rearrange(x, "b f c h w -> (b f) c h w")
+        mu, logvar = vae.encoder(x)
+        mu = rearrange(mu, "(b f) l -> b f l", b=B, f=F)
+        logvar = rearrange(logvar, "(b f) l -> b f l", b=B, f=F)
 
         # Simulate 30 frames forward
         for _ in range(32):
@@ -65,9 +71,8 @@ def main():
             left_action = torch.zeros(
                 (32, 1), device=device
             )  # TODO: get this from the user
-            pred_mu, pred_logvar = dit_model(
-                torch.cat([mu, logvar, left_action], dim=-1)
-            )
+
+            pred_mu, pred_logvar = dit_model(mu, logvar, left_action)
 
             # Reparameterize to get the latent vector
             latent_z = vae.reparameterize(pred_mu, pred_logvar)
@@ -117,7 +122,6 @@ def main():
     print("\nSaved simulation comparison to simulation_comparison.png")
 
 
-
 def live_test():
     import matplotlib.pyplot as plt
     from matplotlib.animation import FuncAnimation
@@ -130,7 +134,7 @@ def live_test():
         num_heads=8,
         latent_dim=4,
     ).to(device)
-    checkpoint = torch.load("best/vae_pong_best.pt", map_location=torch.device(device))
+    checkpoint = torch.load("best/best_vae_v2.pt", map_location=torch.device(device))
     vae.load_state_dict(checkpoint["model_state_dict"])
 
     from PongSim import pong_test_dataset
@@ -144,7 +148,7 @@ def live_test():
     ).to(device)
 
     dit_checkpoint = torch.load(
-        "best/dit_pong_best.pt", map_location=torch.device(device)
+        "best/best_dit_v2.pt", map_location=torch.device(device)
     )
     dit_model.load_state_dict(dit_checkpoint["model_state_dict"])
 
@@ -163,17 +167,30 @@ def live_test():
             interpolation="nearest",
         )
         x = x.to(device)
+        B, F, C, H, W = x.shape
+
+        x = rearrange(x, "b f c h w -> (b f) c h w")
+
         mu, logvar = vae.encoder(x[:, :3])  # seed it with 3 frames
+
+        mu = rearrange(mu, "(b f) l -> b f l", b=B, f=F)
+        logvar = rearrange(logvar, "(b f) l -> b f l", b=B, f=F)
+
         break
 
     def update(frame):
         global mu, logvar, img
-        left_action = np.random.choice([-1.0])
         # Encode the first 3 frames to latent space using VAE
 
+        B, F, L = mu.shape
         # Predict the next latent distribution using DiT
-        left_action = torch.zeros((1, 1), device=device)  # TODO: get this from the user
-        pred_mu, pred_logvar = dit_model(torch.cat([mu, logvar, left_action], dim=-1))
+        left_action = torch.zeros(
+            (1, F, 1), device=device
+        )  # TODO: get this from the user
+
+        left_action[0, 0, 0] = np.random.choice([-1.0])
+
+        pred_mu, pred_logvar = dit_model(mu, logvar, left_action)
 
         # Reparameterize to get the latent vector
         latent_z = vae.reparameterize(pred_mu, pred_logvar)
