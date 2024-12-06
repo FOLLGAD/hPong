@@ -24,5 +24,6 @@ Done:
 # References
 
 - [RoPE: Rotary Position Embedding](https://arxiv.org/pdf/2104.09864v5)
-- [Spatiotemporal Skip Guidance](https://arxiv.org/pdf/2411.18664#page=9&zoom=100,84,296)
+- [Spatiotemporal Skip Guidance](https://arxiv.org/pdf/2411.18664)
+- [Classifier-free Guidance](https://arxiv.org/pdf/2207.12598)
 - [Axial Attention](https://arxiv.org/pdf/1912.12180)
