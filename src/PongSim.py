@@ -5,6 +5,17 @@ import os
 import pickle
 
 
+def set_seed(seed):
+    """Set the random seed for reproducibility."""
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+
+set_seed(1337)
+
+
 class PongEnv:
     def __init__(
         self, height=32, width=64, device="cuda" if torch.cuda.is_available() else "cpu"
@@ -241,16 +252,6 @@ pong_test_dataset = PongDataset(num_episodes=10, num_frames=32)
 
 dataset_path = "pong_dataset.pkl"
 
-# Check if the dataset already exists
-if os.path.exists(dataset_path):
-    # Load the dataset from the file
-    with open(dataset_path, "rb") as f:
-        pong_dataset = pickle.load(f)
-    print(f"Loaded existing dataset with {len(pong_dataset)} samples.")
-else:
-    # Generate the dataset and save it to a file
-    print("Generating dataset... This might take a while.")
-    pong_dataset = PongDataset()
-    with open(dataset_path, "wb") as f:
-        pickle.dump(pong_dataset, f)
-    print(f"Generated and saved dataset with {len(pong_dataset)} samples.")
+print("Generating dataset...")
+pong_dataset = PongDataset()
+print("Finished generating")
