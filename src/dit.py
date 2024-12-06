@@ -1,8 +1,12 @@
 import os
 from einops import rearrange
+from matplotlib import pyplot as plt
 from torch import nn
 import torch
 from tqdm import tqdm
+from torch.utils.tensorboard import SummaryWriter
+
+from util import visualize_batch
 
 
 class DiT(nn.Module):
@@ -78,8 +82,10 @@ def train_dit(
     beta=1.0,
     device="cuda",
     checkpoint_dir="dit_checkpoints",
+    log_dir="logs",
 ):
     os.makedirs(checkpoint_dir, exist_ok=True)
+    writer = SummaryWriter(log_dir=log_dir)
 
     dit_model.train()
     vae_model.eval()
@@ -123,6 +129,8 @@ def train_dit(
                 x, num_frames
             )
 
+            visualize_batch(train_loader, num_batches=1)
+
             pred_mu, pred_logvar = dit_model(input_mu, input_logvar, left_action)
 
             recon_loss = nn.functional.mse_loss(pred_mu, target_mu)
@@ -145,6 +153,18 @@ def train_dit(
             total_recon += recon_loss.item() * B
             total_kl += kl_loss.item() * B
 
+            writer.add_scalar(
+                "Loss/Total", loss.item(), epoch * len(train_loader) + _batch_idx
+            )
+            writer.add_scalar(
+                "Loss/Reconstruction",
+                recon_loss.item(),
+                epoch * len(train_loader) + _batch_idx,
+            )
+            writer.add_scalar(
+                "Loss/KL", kl_loss.item(), epoch * len(train_loader) + _batch_idx
+            )
+
             pbar.set_postfix(
                 {
                     "loss": f"{loss.item():.4f}",
@@ -156,6 +176,10 @@ def train_dit(
         avg_loss = total_loss / len(train_loader.dataset)
         avg_recon = total_recon / len(train_loader.dataset)
         avg_kl = total_kl / len(train_loader.dataset)
+
+        writer.add_scalar("Epoch Loss/Total", avg_loss, epoch)
+        writer.add_scalar("Epoch Loss/Reconstruction", avg_recon, epoch)
+        writer.add_scalar("Epoch Loss/KL", avg_kl, epoch)
 
         print(
             f"Epoch {epoch+1}/{epochs}: Loss = {avg_loss:.4f} "
@@ -182,3 +206,5 @@ def train_dit(
             "loss": avg_loss,
         }
         torch.save(checkpoint, os.path.join(checkpoint_dir, "latest_model.pt"))
+
+    writer.close()

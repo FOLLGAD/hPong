@@ -19,7 +19,7 @@ checkpoint = torch.load("best/best_vae_v2.pt", map_location=torch.device(device)
 vae_model.load_state_dict(checkpoint["model_state_dict"])
 
 dit_model = DiT(latent_dim=4).to(device)
-optimizer = torch.optim.Adam(dit_model.parameters(), lr=1e-4)
+optimizer = torch.optim.AdamW(dit_model.parameters(), lr=1e-4)
 
 train_loader = DataLoader(pong_dataset, batch_size=32, shuffle=True)
 
