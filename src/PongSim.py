@@ -234,9 +234,6 @@ class PongDataset(Dataset):
         return len(self.data) - self.frames_per_sample + 1
 
     def __getitem__(self, idx):
-        if idx + self.frames_per_sample > len(self.data):
-            raise IndexError("Index out of range for available data samples.")
-
         samples = self.data[idx : idx + self.frames_per_sample]
 
         states = [sample[0] for sample in samples]
@@ -249,9 +246,4 @@ class PongDataset(Dataset):
 
 
 pong_test_dataset = PongDataset(num_episodes=10, num_frames=32)
-
-dataset_path = "pong_dataset.pkl"
-
-print("Generating dataset...")
 pong_dataset = PongDataset()
-print("Finished generating")

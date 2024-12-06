@@ -78,6 +78,7 @@ def train_dit(
     vae_model,
     train_loader,
     optimizer,
+    scheduler,
     epochs=100,
     beta=1.0,
     device="cuda",
@@ -146,8 +147,11 @@ def train_dit(
             # Total loss
             loss = recon_loss + beta * kl_loss
 
+            torch.nn.utils.clip_grad_norm_(dit_model.parameters(), max_norm=1.0)
+
             loss.backward()
             optimizer.step()
+            scheduler.step()
 
             total_loss += loss.item() * B
             total_recon += recon_loss.item() * B
