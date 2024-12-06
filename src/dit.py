@@ -8,10 +8,25 @@ from tqdm import tqdm
 class DiT(nn.Module):
     """Diffusion Transformer for predicting next latent state distribution"""
 
+    def create_positional_encoding(self, dim, max_len=5000):
+        # Create a tensor for positional encoding
+        pe = torch.zeros(max_len, dim)
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(
+            torch.arange(0, dim, 2).float() * (-torch.log(torch.tensor(10000.0)) / dim)
+        )
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0)  # Add batch dimension
+        return pe
+
     def __init__(self, latent_dim=4, hidden_dim=128, nhead=8, num_layers=4):
         super().__init__()
 
         self.input_proj = nn.Linear(latent_dim * 2 + 1, hidden_dim)
+
+        self.positional_encoding = self.create_positional_encoding(hidden_dim)
+
         self.transformer = nn.TransformerEncoder(
             nn.TransformerEncoderLayer(
                 d_model=hidden_dim,
@@ -40,10 +55,14 @@ class DiT(nn.Module):
     def forward(self, input_mu, input_logvar, action):
         x = torch.cat((input_mu, input_logvar, action), dim=-1)
         x = self.input_proj(x)
+
+        # Add positional encoding to each frame
+        seq_len = x.size(1)
+        x = x + self.positional_encoding[:, :seq_len, :].to(x.device)
+
         x = self.transformer(x)
 
-        # Assuming you want the output corresponding to the last frame
-        x = x[:, -1, :].unsqueeze(1)  # Select the last frame's output
+        x = x[:, -1, :].unsqueeze(1)
 
         mu = self.mu_proj(x)
         logvar = self.logvar_proj(x)
