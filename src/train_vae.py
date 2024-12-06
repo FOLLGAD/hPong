@@ -40,7 +40,7 @@ vae = ViTVAE(
     latent_dim=latent_dim,
 ).to(device)
 
-optimizer = torch.optim.Adam(vae.parameters(), lr=1e-4)
+optimizer = torch.optim.AdamW(vae.parameters(), lr=1e-4)
 train_loader = DataLoader(pong_dataset, batch_size=32, shuffle=True)
 
 if args.continue_training:

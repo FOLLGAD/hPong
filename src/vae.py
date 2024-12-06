@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from tqdm import tqdm
 import os
 import numpy as np
+from torch.utils.tensorboard import SummaryWriter
 import math
 
 from einops import rearrange, reduce, asnumpy, parse_shape
@@ -237,9 +238,11 @@ def train_vae(
     device="cuda",
     checkpoint_dir="checkpoints",
     start_epoch=0,
+    log_dir="logs",
 ):
     # Create checkpoint directory if it doesn't exist
     os.makedirs(checkpoint_dir, exist_ok=True)
+    writer = SummaryWriter(log_dir=log_dir)
 
     model.train()
     best_loss = float("inf")
@@ -263,6 +266,14 @@ def train_vae(
             total_recon += recon
             total_kl += kl
 
+            writer.add_scalar("Loss/Total", loss, epoch * len(train_loader) + batch_idx)
+            writer.add_scalar(
+                "Loss/Reconstruction",
+                recon,
+                epoch * len(train_loader) + batch_idx,
+            )
+            writer.add_scalar("Loss/KL", kl, epoch * len(train_loader) + batch_idx)
+
             # Update progress bar with current batch metrics
             pbar.set_postfix(
                 {
@@ -275,6 +286,10 @@ def train_vae(
         avg_loss = total_loss / len(train_loader.dataset)
         avg_recon = total_recon / len(train_loader.dataset)
         avg_kl = total_kl / len(train_loader.dataset)
+
+        writer.add_scalar("Epoch Loss/Total", avg_loss, epoch)
+        writer.add_scalar("Epoch Loss/Reconstruction", avg_recon, epoch)
+        writer.add_scalar("Epoch Loss/KL", avg_kl, epoch)
 
         print(
             f"Epoch {epoch+1}/{epochs}: Loss = {avg_loss:.4f} "
@@ -301,3 +316,5 @@ def train_vae(
             "loss": avg_loss,
         }
         torch.save(checkpoint, os.path.join(checkpoint_dir, "latest_model.pt"))
+
+    writer.close()
