@@ -129,7 +129,7 @@ def train_dit(
                 x, num_frames
             )
 
-            visualize_batch(train_loader, num_batches=1)
+            # visualize_batch(train_loader, num_batches=1)
 
             pred_mu, pred_logvar = dit_model(input_mu, input_logvar, left_action)
 
