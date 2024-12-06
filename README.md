@@ -6,21 +6,20 @@
 
 ## Doing:
 
-VAE:
-
-- [ ] make vae training output images after each epoch
-- [x] Split each frame into its own VAE encoding/decoding.
-
-DiT:
-
-- [ ] Read up on rotary position embeddings in transformers, look at example implementations
-  - [ ] implement **spacial** position embedding using rope
-  - [ ] implement **temporal** position embedding using rope
+- [ ] implement **temporal** position embedding using rope
 
 ## Todo:
 
+- [ ] Read up on rotary position embeddings in transformers, look at example implementations
+- [ ] implement **spacial** position embedding using rope
+- [ ] make vae training output images after each epoch
 - [ ] Figure out why KL divergence of the DiT is so high (in the 9 orders of magnitude)
 - [ ] guidance for user actions on DiT (STGuidance)
+
+Done:
+
+- [x] Split each frame into its own VAE encoding/decoding.
+- [x] in the dataset, the "player" paddle should sometimes play like a good player for data quality
 
 # References
 
