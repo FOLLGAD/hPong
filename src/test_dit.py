@@ -178,19 +178,30 @@ def live_test():
 
         break
 
+    left_action = torch.zeros((1, 1, 1), device=device)
+
+    def on_click(event):
+        nonlocal left_action
+        if event.inaxes is not None:
+            if event.y < fig.bbox.ymax / 3:
+                left_action = torch.tensor([[[1.0]]], device=device)
+            elif event.y < fig.bbox.ymax / 3 * 2:
+                left_action = torch.tensor([[[0.0]]], device=device)
+            else:
+                left_action = torch.tensor([[[-1.0]]], device=device)
+
+    fig.canvas.mpl_connect("button_press_event", on_click)
+
     def update(frame):
+        nonlocal left_action
         global mu, logvar, img
         # Encode the first 3 frames to latent space using VAE
 
         B, F, L = mu.shape
         # Predict the next latent distribution using DiT
-        left_action = torch.zeros(
-            (1, F, 1), device=device
-        )  # TODO: get this from the user
+        la = left_action.expand(-1, F, -1).to(device)
 
-        left_action[0, 0, 0] = np.random.choice([-1.0])
-
-        pred_mu, pred_logvar = dit_model(mu, logvar, left_action)
+        pred_mu, pred_logvar = dit_model(mu, logvar, la)
 
         # Reparameterize to get the latent vector
         latent_z = vae.reparameterize(pred_mu, pred_logvar)

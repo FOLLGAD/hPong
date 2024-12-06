@@ -40,7 +40,7 @@ def get_cosine_schedule_with_warmup(
 def create_optimizer_and_scheduler(model, num_training_steps):
     optimizer = torch.optim.AdamW(
         model.parameters(),
-        lr=1e-4,
+        lr=1e-5,
         betas=(0.9, 0.999),
         weight_decay=0.01,
         eps=1e-8,
