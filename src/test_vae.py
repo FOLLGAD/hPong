@@ -105,7 +105,7 @@ def main():
         num_heads=8,
         latent_dim=4,
     ).to(device)
-    checkpoint = torch.load("best/best_vae_v2.pt", map_location=torch.device(device))
+    checkpoint = torch.load("best/test_vae_v2.pt", map_location=torch.device(device))
     model.load_state_dict(checkpoint["model_state_dict"])
 
     model.eval()
